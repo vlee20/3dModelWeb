@@ -1,5 +1,5 @@
 import { useGLTF } from '@react-three/drei';
-import { useThree } from '@react-three/fiber';
+import { useThree, useFrame } from '@react-three/fiber';
 import { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 
@@ -9,26 +9,52 @@ function ModelViewer() {
     const meshRef = useRef();
     const [hoveredMesh, setHoveredMesh] = useState(null);
 
-    // Store original color and scale to restore on unhover
-    const originalColors = useRef(new Map());
-    const originalScales = useRef(new Map());
 
-    // Save original material colors and scales after model loads
+    // Attach the scene to the meshRef for rotation
     useEffect(() => {
-        if (scene) {
-            scene.traverse((child) => {
-                if (child.isMesh && child.material) {
-                    originalColors.current.set(child.uuid, child.material.color.clone());
-                    originalScales.current.set(child.uuid, child.scale.clone());
-                }
-            });
+        if (meshRef.current === null && scene) {
+            meshRef.current = scene;
         }
     }, [scene]);
+
+    // Automatic rotation
+    useFrame(() => {
+        if (meshRef.current) {
+            meshRef.current.rotation.y += 0.001; // Rotate around Y axis
+            // You can also rotate X or Z: meshRef.current.rotation.x += 0.01;
+        }
+    });
+
 
     // Set initial camera position further out
     useEffect(() => {
         camera.position.set(0, 0, 10);
     }, [camera]);
+
+    // add raycaster for model interaction
+    const raycaster = useRef(new THREE.Raycaster());
+
+    document.addEventListener('mousedown', onMouseDown);
+
+    function onMouseDown(event) {
+        console.log("Mouse down event detected");
+        raycaster.current.setFromCamera({
+            x: (event.clientX / window.innerWidth) * 2 - 1,
+            y: -(event.clientY / window.innerHeight) * 2 + 1
+        }, camera);
+
+        const intersects = raycaster.current.intersectObjects(scene.children, true);
+        if (intersects.length > 0) {
+            const intersectedObject = intersects[0].object;
+            const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+            console.log("Intersected object:", intersectedObject);
+            if (intersectedObject.isMesh) {
+                // Change color on click
+                intersectedObject.material.color.set(color); // Highlight color
+                // intersectedObject.scale.set(1.1, 1.1, 1.1); // Enlarge
+            }
+        }
+    }
 
     return (
         <>
@@ -42,6 +68,22 @@ function ModelViewer() {
 export default ModelViewer;
 
 
+
+    // // Store original color and scale to restore on unhover
+    // const originalColors = useRef(new Map());
+    // const originalScales = useRef(new Map());
+
+    // // Save original material colors and scales after model loads
+    // useEffect(() => {
+    //     if (scene) {
+    //         scene.traverse((child) => {
+    //             if (child.isMesh && child.material) {
+    //                 originalColors.current.set(child.uuid, child.material.color.clone());
+    //                 originalScales.current.set(child.uuid, child.scale.clone());
+    //             }
+    //         });
+    //     }
+    // }, [scene]);
 
 
     // // Mouse move handler for hover detection
